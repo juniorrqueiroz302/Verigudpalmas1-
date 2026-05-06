@@ -9,8 +9,13 @@
 <!-- ══ FIREBASE SDK ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
+// ════════════════════════════════════════════════════
+//  🔥 SUAS CREDENCIAIS FIREBASE — SUBSTITUA ABAIXO
+//  Acesse: https://console.firebase.google.com
+//  Crie um projeto → Web App → copie o firebaseConfig
+// ════════════════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyDzz5gAhvEAMHOZGBg5Z1R-lvID2fZsjEI",
   authDomain: "hamburgueria-e8b3e.firebaseapp.com",
@@ -20,57 +25,54 @@ const firebaseConfig = {
   appId: "1:504069375545:web:0b06a83f616cfb7c15efe8",
   measurementId: "G-55YW6Z6CJL"
 };
+// ════════════════════════════════════════════════════
 
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const db = getFirestore(app);
 
-const STORE_ID = "loja1";
-const docRef   = (col) => doc(db, "burgershop", STORE_ID, col, "data");
+const STORE_ID = "loja1"; // Se tiver mais de uma loja, mude esse ID
 
-// ── Salvar ──
+// ── Referências dos documentos no Firestore ──
+const docRef = (col) => doc(db, "burgershop", STORE_ID, col, "data");
+
+// ── Salvar no Firestore ──
 window.fbSave = async function(collection, value) {
   try {
     await setDoc(docRef(collection), { value: JSON.stringify(value) });
-    console.log("[Firebase] Salvo:", collection);
   } catch(e) {
-    console.error("[Firebase] Erro ao salvar:", collection, e);
+    console.error("Erro ao salvar:", e);
+    // fallback para localStorage se Firebase falhar
     localStorage.setItem('bshop_'+collection, JSON.stringify(value));
   }
 };
 
-// ── Carregar ──
+// ── Carregar do Firestore ──
 window.fbLoad = async function(collection, fallback) {
   try {
     const snap = await getDoc(docRef(collection));
     if (snap.exists()) {
-      const parsed = JSON.parse(snap.data().value);
-      console.log("[Firebase] Carregado:", collection, parsed);
-      return parsed;
+      const data = snap.data();
+      return JSON.parse(data.value);
     }
-    console.log("[Firebase] Vazio, usando fallback:", collection);
     return fallback;
   } catch(e) {
-    console.error("[Firebase] Erro ao carregar:", collection, e);
+    console.error("Erro ao carregar:", e);
+    // fallback para localStorage
     const local = localStorage.getItem('bshop_'+collection);
     return local ? JSON.parse(local) : fallback;
   }
 };
 
-// ── Escutar em tempo real ──
+// ── Escutar mudanças em tempo real (para o cardápio do cliente) ──
 window.fbListen = function(collection, callback) {
   return onSnapshot(docRef(collection), (snap) => {
     if (snap.exists()) {
-      try {
-        const val = JSON.parse(snap.data().value);
-        console.log("[Firebase] Listener update:", collection);
-        callback(val);
-      } catch(e) { console.error("[Firebase] Parse erro listener:", e); }
+      try { callback(JSON.parse(snap.data().value)); } catch(e) {}
     }
-  }, (err) => console.error("[Firebase] Listener erro:", collection, err));
+  }, (err) => console.error("Listener erro:", err));
 };
 
-// ── Sinalizar pronto — DEPOIS de tudo atribuído ──
-console.log("[Firebase] SDK pronto, disparando firebaseReady");
+// ── Inicializar o app após Firebase estar pronto ──
 window.firebaseReady = true;
 window.dispatchEvent(new Event('firebaseReady'));
 </script>
@@ -374,37 +376,6 @@ body{font-family:'Nunito',sans-serif;background:var(--dark);color:var(--dark);mi
 .backup-stat-val{font-size:24px;font-weight:900;color:var(--red);}
 .backup-stat-label{font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
 
-/* ENTREGA ADMIN */
-.entrega-list{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
-.entrega-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.07);border-left:4px solid var(--blue);}
-.entrega-item-info{flex:1;}
-.entrega-item-nome{font-weight:800;font-size:14px;color:var(--dark);}
-.entrega-item-taxa{font-size:12px;color:var(--blue);font-weight:700;margin-top:2px;}
-.entrega-item-desc{font-size:11px;color:var(--gray);margin-top:2px;}
-.entrega-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;font-weight:900;}
-.entrega-del:hover{background:#ffebee;}
-/* ENTREGA NO CARRINHO */
-.entrega-selector{margin-bottom:18px;}
-.entrega-selector-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
-.entrega-opts{display:flex;flex-direction:column;gap:8px;}
-.entrega-opt{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:14px;border:2px solid #e0e0e0;background:#fff;cursor:pointer;transition:all 0.2s;}
-.entrega-opt.selected{border-color:var(--blue);background:#EBF5FB;}
-.entrega-opt-info{flex:1;}
-.entrega-opt-nome{font-weight:800;font-size:14px;color:var(--dark);}
-.entrega-opt-desc{font-size:11px;color:var(--gray);margin-top:2px;}
-.entrega-opt-preco{font-weight:900;font-size:15px;color:var(--blue);white-space:nowrap;margin-left:12px;}
-.entrega-opt-gratis{font-weight:900;font-size:14px;color:var(--green);white-space:nowrap;margin-left:12px;}
-/* TOTAL BOX */
-.cart-total-box{background:#fff;border-radius:16px;padding:16px 18px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.07);}
-.cart-total-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;}
-.cart-total-row.subtotal{border-bottom:1.5px dashed #e0d8ce;padding-bottom:8px;margin-bottom:4px;}
-.cart-total-row .lbl{font-size:13px;font-weight:700;color:var(--gray);}
-.cart-total-row .val{font-size:14px;font-weight:800;color:var(--dark);}
-.cart-total-row.final .lbl{font-size:15px;font-weight:900;color:var(--dark);}
-.cart-total-row.final .val{font-size:22px;font-weight:900;color:var(--red);}
-.cart-total-row.entrega-row .val{color:var(--blue);}
-.cart-total-row.gratis-row .val{color:var(--green);}
-
 /* TOAST */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dark);color:#fff;padding:10px 22px;border-radius:50px;font-size:14px;font-weight:700;z-index:600;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -470,7 +441,6 @@ body{font-family:'Nunito',sans-serif;background:var(--dark);color:var(--dark);mi
       <button class="admin-nav-btn" id="tab-combo"    onclick="showSec('combo')">🍟 Combos</button>
       <button class="admin-nav-btn" id="tab-ficha"    onclick="showSec('ficha')">🧮 Ficha Téc.</button>
       <button class="admin-nav-btn" id="tab-adicionais" onclick="showSec('adicionais')">➕ Adicionais</button>
-      <button class="admin-nav-btn" id="tab-entrega"   onclick="showSec('entrega')">🛵 Entrega</button>
       <button class="admin-nav-btn" id="tab-promos"   onclick="showSec('promos')">📣 Promoções</button>
       <button class="admin-nav-btn" id="tab-config"   onclick="showSec('config')">⚙️ Config</button>
       <button class="admin-nav-btn" id="tab-backup"   onclick="showSec('backup')">💾 Backup</button>
@@ -638,35 +608,6 @@ body{font-family:'Nunito',sans-serif;background:var(--dark);color:var(--dark);mi
       </div>
     </div>
 
-    <!-- ENTREGA -->
-    <div id="sec-entrega" class="admin-section">
-      <div class="section-title">🛵 Taxa de <span>Entrega</span></div>
-      <div class="add-form">
-        <div class="form-title">➕ Adicionar Zona de Entrega</div>
-        <div class="form-grid">
-          <div class="form-group"><label>Nome da Zona / Bairro</label><input type="text" id="ent-nome" placeholder="Ex: Centro, Bairro Norte..."></div>
-          <div class="form-group"><label>Taxa (R$) — 0 = Grátis</label><input type="number" id="ent-taxa" placeholder="0,00" step="0.01" min="0"></div>
-          <div class="form-group full"><label>Descrição (opcional)</label><input type="text" id="ent-desc" placeholder="Ex: Até 3km, Zona Sul..."></div>
-        </div>
-        <div class="btn-row"><button class="btn btn-blue" onclick="addEntrega()">➕ Adicionar Zona</button></div>
-      </div>
-      <div class="add-form" style="padding:16px 20px;">
-        <div class="form-title">📋 Zonas Cadastradas</div>
-        <div id="entrega-list" class="entrega-list"></div>
-        <p style="font-size:11px;color:#aaa;margin-top:12px;">💡 Taxa R$ 0,00 aparece como <strong style="color:var(--green);">GRÁTIS</strong> para o cliente. O cliente escolhe o bairro na hora de fechar o pedido e a taxa é somada automaticamente ao total.</p>
-      </div>
-      <div class="add-form" style="background:#EBF5FB;border:1.5px solid #AED6F1;">
-        <div class="form-title" style="color:var(--blue);">💡 Como funciona</div>
-        <p style="font-size:13px;color:#1A5276;line-height:1.9;">
-          1️⃣ Cadastre os bairros/zonas com o valor da taxa<br>
-          2️⃣ O cliente monta o carrinho normalmente<br>
-          3️⃣ Na hora de fechar, aparece a lista de bairros<br>
-          4️⃣ Ele seleciona → a taxa é somada ao total<br>
-          5️⃣ O pedido no WhatsApp já mostra subtotal + entrega + total
-        </p>
-      </div>
-    </div>
-
     <!-- PROMOÇÕES -->
     <div id="sec-promos" class="admin-section">
       <div class="section-title">Promoções <span>Animadas</span></div>
@@ -823,28 +764,7 @@ body{font-family:'Nunito',sans-serif;background:var(--dark);color:var(--dark);mi
     <div class="modal-handle"></div>
     <div class="modal-title">🛒 Seu Pedido</div>
     <div class="cart-items" id="cart-items-list"></div>
-    <div class="cart-total-box">
-      <div class="cart-total-row subtotal">
-        <span class="lbl">🛍️ Subtotal</span>
-        <span class="val" id="cart-subtotal-val">R$ 0,00</span>
-      </div>
-      <div class="cart-total-row entrega-row" id="cart-entrega-row" style="display:none;">
-        <span class="lbl">🛵 Entrega</span>
-        <span class="val" id="cart-entrega-val">R$ 0,00</span>
-      </div>
-      <div class="cart-total-row gratis-row" id="cart-gratis-row" style="display:none;">
-        <span class="lbl">🛵 Entrega</span>
-        <span class="val">GRÁTIS ✅</span>
-      </div>
-      <div class="cart-total-row final">
-        <span class="lbl">💰 Total</span>
-        <span class="val" id="cart-total-val">R$ 0,00</span>
-      </div>
-    </div>
-    <div class="entrega-selector" id="entrega-selector" style="display:none;">
-      <div class="entrega-selector-label">🛵 Selecione sua zona de entrega</div>
-      <div class="entrega-opts" id="entrega-opts"></div>
-    </div>
+    <div class="cart-total"><span class="total-label">Total</span><span class="total-value" id="cart-total-val">R$ 0,00</span></div>
     <div class="checkout-section"><div class="checkout-label">💳 Pagamento</div>
       <div class="pay-options">
         <button class="pay-opt" onclick="selPay(this,'Dinheiro 💵')">💵 Dinheiro</button>
@@ -875,19 +795,14 @@ var _defaultPromos = '["🔥 PROMOÇÃO DO DIA: Combo por R$29,90!","🎉 2ª e 
 
 // Salvar com indicador visual
 function dbSet(key, value) {
-  // 1. Atualiza cache imediatamente
+  // 1. Cache imediato
   _cache[key] = value;
-  // 2. Salva localStorage imediatamente (garante persistência local)
+  // 2. localStorage SEMPRE — garante que dbGet lê o valor certo logo após o set
   localStorage.setItem('bshop_'+key, JSON.stringify(value));
-  // 3. Salva no Firebase em paralelo (nuvem)
+  // 3. Firebase em paralelo (nuvem)
   showSavingInd();
   if (window.fbSave) {
-    window.fbSave(key, value).then(function(){
-      hideSavingInd();
-    }).catch(function(e){
-      console.error("dbSet Firebase erro:", e);
-      hideSavingInd();
-    });
+    window.fbSave(key, value).then(function(){ hideSavingInd(); }).catch(function(){ hideSavingInd(); });
   } else {
     hideSavingInd();
   }
@@ -916,8 +831,6 @@ var DB = {
   set shopName(v)    { dbSet('shopName', v); },
   get shopLogo()     { return dbGet('shopLogo', ''); },
   set shopLogo(v)    { dbSet('shopLogo', v); },
-  get entregaZonas()  { return dbGet('entregaZonas', []); },
-  set entregaZonas(v) { dbSet('entregaZonas', v); },
   get adminPass()    { return dbGet('adminPass', 'admin123'); },
   set adminPass(v)   { dbSet('adminPass', v); }
 };
@@ -927,7 +840,7 @@ function showSavingInd(){var el=document.getElementById('saving-ind');if(el){el.
 function hideSavingInd(){setTimeout(function(){var el=document.getElementById('saving-ind');if(el)el.classList.remove('show');},1200);}
 
 // ══ STATE ══
-var cart=[],selectedPay='',currentCat='todos',selectedEntregaId=null;
+var cart=[],selectedPay='',currentCat='todos';
 var imgs={newProdImg:'',newFtImg:'',newComboImg:'',editImg:''};
 var newLogoImg='';
 var receita=[],markupMode='pct';
@@ -947,7 +860,6 @@ async function loadAllFromFirebase() {
     ['whatsapp', '11999998888'],
     ['shopName', 'BURGERSHOP'],
     ['shopLogo', ''],
-    ['entregaZonas', []],
     ['adminPass', 'admin123']
   ];
   for (var i=0; i<keys.length; i++) {
@@ -983,7 +895,7 @@ function handleImg(prevId,phId,stateKey,e){
 // ══ NAV ══
 function showScreen(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.getElementById(id).classList.add('active');}
 function goClient(){showScreen('client-screen');renderPromoBanner();renderClientHeader();renderCatTabs();renderClientProducts();updateCartUI();}
-function goAdmin(){closeAdminLogin();showScreen('admin-screen');renderAdminProducts();renderAdminPromos();renderIngList();renderFtIngSelect();renderAdicionalAdminList();renderCatAdminList();renderEntregaList();fillCatSelects();document.getElementById('cfg-wp').value=DB.whatsapp;document.getElementById('cfg-name').value=DB.shopName;refreshLogoCircle();updateBackupStats();showSec('produtos');}
+function goAdmin(){closeAdminLogin();showScreen('admin-screen');renderAdminProducts();renderAdminPromos();renderIngList();renderFtIngSelect();renderAdicionalAdminList();renderCatAdminList();fillCatSelects();document.getElementById('cfg-wp').value=DB.whatsapp;document.getElementById('cfg-name').value=DB.shopName;refreshLogoCircle();updateBackupStats();showSec('produtos');}
 function showSec(sec){document.querySelectorAll('.admin-section').forEach(function(s){s.classList.remove('active');});document.querySelectorAll('.admin-nav-btn').forEach(function(b){b.classList.remove('active');});document.getElementById('sec-'+sec).classList.add('active');document.getElementById('tab-'+sec).classList.add('active');if(sec==='backup')updateBackupStats();}
 
 // ══ LOGIN ══
@@ -993,6 +905,8 @@ function checkPass(){var v=document.getElementById('admin-pass-input').value;if(
 
 // ══ CATEGORIAS ══
 function getCatById(id){return DB.categorias.find(function(c){return c.id===id;})||{emoji:'📦',name:id};}
+var _lockedCatIds = ['hamburger','combo','bebida','outro'];
+
 function addCategoria(){
   var emoji=document.getElementById('cat-emoji').value.trim()||'🏷️';
   var name=document.getElementById('cat-name').value.trim();
@@ -1005,14 +919,21 @@ function addCategoria(){
   renderCatAdminList();fillCatSelects();renderCatTabs();toast('✅ Categoria adicionada!');
 }
 function delCategoria(id){
+  if(_lockedCatIds.indexOf(id)>=0){toast('🔒 Esta categoria não pode ser removida!');return;}
   var cats=DB.categorias.filter(function(c){return c.id!==id;});
   DB.categorias=cats;renderCatAdminList();fillCatSelects();renderCatTabs();toast('🗑️ Categoria removida');
 }
 function renderCatAdminList(){
   var el=document.getElementById('cat-admin-list');
   var cats=DB.categorias;
+  // Garantir que categorias padrão sempre tenham locked=true
+  cats=cats.map(function(c){
+    if(_lockedCatIds.indexOf(c.id)>=0) c.locked=true;
+    return c;
+  });
   el.innerHTML=cats.map(function(c){
-    return '<div class="cat-admin-item"><span>'+c.emoji+' '+c.name+'</span>'+(c.locked?'<button class="cat-admin-del locked" disabled>🔒</button>':'<button class="cat-admin-del" onclick="delCategoria(\''+c.id+'\')">✕</button>')+'</div>';
+    var isLocked=c.locked||_lockedCatIds.indexOf(c.id)>=0;
+    return '<div class="cat-admin-item"><span>'+c.emoji+' '+c.name+'</span>'+(isLocked?'<button class="cat-admin-del locked" disabled>🔒</button>':'<button class="cat-admin-del" onclick="delCategoria(\''+c.id+'\')">✕</button>')+'</div>';
   }).join('');
 }
 function fillCatSelects(){
@@ -1080,8 +1001,7 @@ function addProduct(){
   document.getElementById('p-name').value='';document.getElementById('p-price').value='';document.getElementById('p-cost').value='';document.getElementById('p-desc').value='';
   document.getElementById('p-img-prev').style.display='none';document.getElementById('p-img-ph').style.display='flex';document.getElementById('p-img-input').value='';
   imgs.newProdImg='';
-  renderAdminProducts();
-  toast('✅ Produto salvo na nuvem!');
+  renderAdminProducts();toast('✅ Produto salvo na nuvem!');
 }
 function delProduct(id){
   if(!confirm('Excluir produto?'))return;
@@ -1338,13 +1258,14 @@ function confirmCustomize(){
 function addToCart(id){var prod=DB.products.find(function(p){return p.id===id;});if(!prod)return;var ex=cart.find(function(c){return c.id===id&&!c.note;});if(ex){ex.qty++;}else{cart.push(Object.assign({},prod,{qty:1,note:'',itemPrice:prod.price}));}updateCartUI();toast('✅ '+prod.name+' adicionado!');}
 function changeQty(idx,d){cart[idx].qty+=d;if(cart[idx].qty<=0)cart.splice(idx,1);updateCartUI();renderCartItems();}
 function updateCartUI(){var count=cart.reduce(function(a,c){return a+c.qty;},0);document.getElementById('cart-count').textContent=count;var btn=document.getElementById('cart-btn');if(count===0)btn.classList.add('hidden');else btn.classList.remove('hidden');}
-function openCart(){selectedEntregaId=null;document.getElementById('cart-modal').classList.add('open');renderCartItems();renderEntregaOpts();renderCartTotals();}
+function openCart(){document.getElementById('cart-modal').classList.add('open');renderCartItems();}
 function closeCart(){document.getElementById('cart-modal').classList.remove('open');}
 function renderCartItems(){
   var list=document.getElementById('cart-items-list');
-  if(!cart.length){list.innerHTML='<div class="empty-state"><span>🛒</span><p>Carrinho vazio</p></div>';renderCartTotals();return;}
+  if(!cart.length){list.innerHTML='<div class="empty-state"><span>🛒</span><p>Carrinho vazio</p></div>';document.getElementById('cart-total-val').textContent='R$ 0,00';return;}
   list.innerHTML=cart.map(function(c,idx){var ip=c.itemPrice||c.price;var cat=getCatById(c.cat);return '<div class="cart-item">'+(c.img?'<img src="'+c.img+'" alt="'+c.name+'">':'<div class="cart-emoji">'+cat.emoji+'</div>')+'<div class="cart-item-info"><div class="cart-item-name">'+c.name+'</div>'+(c.note?'<div style="font-size:11px;color:#E65100;font-weight:600;margin-top:2px;">✏️ '+c.note+'</div>':'')+'<div class="cart-item-price">R$ '+(ip*c.qty).toFixed(2).replace('.',',')+'</div></div><div class="qty-ctrl"><button class="qty-btn" onclick="changeQty('+idx+',-1)">−</button><span class="qty-num">'+c.qty+'</span><button class="qty-btn" onclick="changeQty('+idx+',+1)">+</button></div></div>';}).join('');
-  renderCartTotals();
+  var total=cart.reduce(function(a,c){return a+(c.itemPrice||c.price)*c.qty;},0);
+  document.getElementById('cart-total-val').textContent='R$ '+total.toFixed(2).replace('.',',');
 }
 function selPay(btn,val){document.querySelectorAll('.pay-opt').forEach(function(b){b.classList.remove('selected');});btn.classList.add('selected');selectedPay=val;}
 function sendOrder(){
@@ -1352,92 +1273,17 @@ function sendOrder(){
   if(!selectedPay){toast('⚠️ Escolha o pagamento!');return;}
   var addr=document.getElementById('c-address').value.trim();
   if(!addr){toast('⚠️ Digite o endereço!');return;}
-  var zonas=DB.entregaZonas;
-  var zona=selectedEntregaId?zonas.find(function(z){return z.id===selectedEntregaId;}):null;
-  if(zonas.length&&!selectedEntregaId){toast('⚠️ Selecione a zona de entrega!');return;}
   var obs=document.getElementById('c-obs').value.trim();
-  var subtotal=cart.reduce(function(a,c){return a+(c.itemPrice||c.price)*c.qty;},0);
-  var taxa=zona?zona.taxa:0;
-  var total=subtotal+taxa;
+  var total=cart.reduce(function(a,c){return a+(c.itemPrice||c.price)*c.qty;},0);
   var msg='🍔 *NOVO PEDIDO — '+DB.shopName+'*\n\n📋 *Itens:*\n';
   cart.forEach(function(c){var ip=c.itemPrice||c.price;msg+='▪️ '+c.qty+'x '+c.name+' — R$ '+(ip*c.qty).toFixed(2).replace('.',',')+'\n';if(c.note)msg+='   ✏️ '+c.note+'\n';});
-  msg+='\n🛍️ *Subtotal: R$ '+subtotal.toFixed(2).replace('.',',')+'*\n';
-  if(zona)msg+='🛵 *Entrega ('+zona.nome+'): '+(taxa===0?'GRÁTIS':'R$ '+taxa.toFixed(2).replace('.',','))+'*\n';
-  msg+='💰 *TOTAL: R$ '+total.toFixed(2).replace('.',',')+'*\n💳 *Pagamento:* '+selectedPay+'\n📍 *Endereço:* '+addr+'\n';
+  msg+='\n💰 *Total: R$ '+total.toFixed(2).replace('.',',')+'*\n💳 *Pagamento:* '+selectedPay+'\n📍 *Endereço:* '+addr+'\n';
   if(obs)msg+='📝 *Obs:* '+obs+'\n';
   msg+='\n⏰ '+new Date().toLocaleString('pt-BR');
   window.open('https://wa.me/55'+DB.whatsapp.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
-  cart=[];selectedPay='';selectedEntregaId=null;
-  document.getElementById('c-address').value='';document.getElementById('c-obs').value='';
+  cart=[];selectedPay='';document.getElementById('c-address').value='';document.getElementById('c-obs').value='';
   document.querySelectorAll('.pay-opt').forEach(function(b){b.classList.remove('selected');});
   updateCartUI();closeCart();toast('✅ Pedido enviado!');
-}
-
-// ══ ENTREGA ══
-function addEntrega(){
-  var nome=document.getElementById('ent-nome').value.trim();
-  var taxa=parseFloat(document.getElementById('ent-taxa').value);
-  var desc=document.getElementById('ent-desc').value.trim();
-  if(!nome){toast('⚠️ Digite o nome da zona!');return;}
-  if(isNaN(taxa)||taxa<0){toast('⚠️ Taxa inválida! Use 0 para grátis.');return;}
-  var zonas=DB.entregaZonas;
-  zonas.push({id:Date.now(),nome:nome,taxa:taxa,desc:desc});
-  DB.entregaZonas=zonas;
-  document.getElementById('ent-nome').value='';
-  document.getElementById('ent-taxa').value='';
-  document.getElementById('ent-desc').value='';
-  renderEntregaList();toast('✅ Zona adicionada!');
-}
-function delEntrega(id){
-  DB.entregaZonas=DB.entregaZonas.filter(function(z){return z.id!==id;});
-  renderEntregaList();toast('🗑️ Zona removida');
-}
-function renderEntregaList(){
-  var el=document.getElementById('entrega-list');if(!el)return;
-  var zonas=DB.entregaZonas;
-  if(!zonas.length){el.innerHTML='<div class="empty-state" style="padding:16px"><span>🛵</span><p style="font-size:13px;">Nenhuma zona cadastrada</p></div>';return;}
-  el.innerHTML=zonas.map(function(z){
-    var taxaStr=z.taxa===0?'<span style="color:var(--green);font-weight:900;">GRÁTIS</span>':'R$ '+z.taxa.toFixed(2).replace('.',',');
-    return '<div class="entrega-item"><div class="entrega-item-info"><div class="entrega-item-nome">📍 '+z.nome+'</div><div class="entrega-item-taxa">🛵 Taxa: '+taxaStr+'</div>'+(z.desc?'<div class="entrega-item-desc">'+z.desc+'</div>':'')+'</div><button class="entrega-del" onclick="delEntrega('+z.id+')">✕</button></div>';
-  }).join('');
-}
-function selEntrega(id){
-  selectedEntregaId=id;
-  document.querySelectorAll('.entrega-opt').forEach(function(b){b.classList.remove('selected');});
-  var el=document.getElementById('eopt-'+id);if(el)el.classList.add('selected');
-  renderCartTotals();
-}
-function renderEntregaOpts(){
-  var zonas=DB.entregaZonas;
-  var sel=document.getElementById('entrega-selector');
-  var opts=document.getElementById('entrega-opts');
-  if(!sel||!opts)return;
-  if(!zonas.length){sel.style.display='none';return;}
-  sel.style.display='block';
-  opts.innerHTML=zonas.map(function(z){
-    var precoHtml=z.taxa===0?'<span class="entrega-opt-gratis">GRÁTIS ✅</span>':'<span class="entrega-opt-preco">+ R$ '+z.taxa.toFixed(2).replace('.',',')+'</span>';
-    return '<div class="entrega-opt" id="eopt-'+z.id+'" onclick="selEntrega('+z.id+')"><div class="entrega-opt-info"><div class="entrega-opt-nome">📍 '+z.nome+'</div>'+(z.desc?'<div class="entrega-opt-desc">'+z.desc+'</div>':'')+'</div>'+precoHtml+'</div>';
-  }).join('');
-}
-function renderCartTotals(){
-  var subtotal=cart.reduce(function(a,c){return a+(c.itemPrice||c.price)*c.qty;},0);
-  var zonas=DB.entregaZonas;
-  var zona=selectedEntregaId?zonas.find(function(z){return z.id===selectedEntregaId;}):null;
-  var taxa=zona?zona.taxa:0;
-  var total=subtotal+(zona?taxa:0);
-  var subEl=document.getElementById('cart-subtotal-val');
-  var totEl=document.getElementById('cart-total-val');
-  var entRow=document.getElementById('cart-entrega-row');
-  var entVal=document.getElementById('cart-entrega-val');
-  var gratisRow=document.getElementById('cart-gratis-row');
-  if(subEl)subEl.textContent='R$ '+subtotal.toFixed(2).replace('.',',');
-  if(totEl)totEl.textContent='R$ '+total.toFixed(2).replace('.',',');
-  if(zona){
-    if(taxa===0){if(entRow)entRow.style.display='none';if(gratisRow)gratisRow.style.display='flex';}
-    else{if(gratisRow)gratisRow.style.display='none';if(entRow)entRow.style.display='flex';if(entVal)entVal.textContent='R$ '+taxa.toFixed(2).replace('.',',');}
-  } else {
-    if(entRow)entRow.style.display='none';if(gratisRow)gratisRow.style.display='none';
-  }
 }
 
 // ══ TOAST ══
@@ -1451,35 +1297,26 @@ function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.c
 async function init() {
   var loadingMsg = document.getElementById('loading-msg');
 
-  // Espera o Firebase estar pronto — com timeout de segurança
-  await new Promise(function(resolve) {
-    if (window.firebaseReady && window.fbLoad) {
-      resolve(); return;
-    }
-    var resolved = false;
-    window.addEventListener('firebaseReady', function() {
-      if (!resolved) { resolved = true; resolve(); }
-    }, { once: true });
-    // fallback: se em 5s não vier, continua sem Firebase
-    setTimeout(function() {
-      if (!resolved) { resolved = true; resolve(); }
-    }, 5000);
+  // Verificar se Firebase foi configurado
+  var waitFb = new Promise(function(resolve) {
+    if (window.firebaseReady) { resolve(); return; }
+    window.addEventListener('firebaseReady', resolve, {once:true});
+    setTimeout(resolve, 3000); // timeout fallback
   });
 
-  // Pequeno delay para garantir que window.fbSave/fbLoad estejam atribuídos
-  await new Promise(function(r){ setTimeout(r, 100); });
+  await waitFb;
 
+  // Checar se as credenciais foram preenchidas
   if (!window.fbLoad) {
-    document.getElementById('firebase-banner').style.display = 'block';
+    document.getElementById('firebase-banner').style.display='block';
     loadingMsg.textContent = 'Usando armazenamento local (Firebase não configurado)';
   } else {
     loadingMsg.textContent = 'Carregando cardápio...';
     try {
       await loadAllFromFirebase();
       startListeners();
-      loadingMsg.textContent = '✅ Conectado ao Firebase!';
+      loadingMsg.textContent = '✅ Conectado!';
     } catch(e) {
-      console.error("Erro no init Firebase:", e);
       loadingMsg.textContent = 'Erro de conexão — usando dados locais';
     }
   }
