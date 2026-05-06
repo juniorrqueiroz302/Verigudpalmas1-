@@ -9,13 +9,8 @@
 <!-- ══ FIREBASE SDK ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// ════════════════════════════════════════════════════
-//  🔥 SUAS CREDENCIAIS FIREBASE — SUBSTITUA ABAIXO
-//  Acesse: https://console.firebase.google.com
-//  Crie um projeto → Web App → copie o firebaseConfig
-// ════════════════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyDzz5gAhvEAMHOZGBg5Z1R-lvID2fZsjEI",
   authDomain: "hamburgueria-e8b3e.firebaseapp.com",
@@ -25,56 +20,48 @@ const firebaseConfig = {
   appId: "1:504069375545:web:0b06a83f616cfb7c15efe8",
   measurementId: "G-55YW6Z6CJL"
 };
-// ════════════════════════════════════════════════════
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+try {
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const STORE_ID = "loja1";
+  const docRef = (col) => doc(db, "burgershop", STORE_ID, col, "data");
 
-const STORE_ID = "loja1"; // Se tiver mais de uma loja, mude esse ID
-
-// ── Referências dos documentos no Firestore ──
-const docRef = (col) => doc(db, "burgershop", STORE_ID, col, "data");
-
-// ── Salvar no Firestore ──
-window.fbSave = async function(collection, value) {
-  try {
-    await setDoc(docRef(collection), { value: JSON.stringify(value) });
-  } catch(e) {
-    console.error("Erro ao salvar:", e);
-    // fallback para localStorage se Firebase falhar
-    localStorage.setItem('bshop_'+collection, JSON.stringify(value));
-  }
-};
-
-// ── Carregar do Firestore ──
-window.fbLoad = async function(collection, fallback) {
-  try {
-    const snap = await getDoc(docRef(collection));
-    if (snap.exists()) {
-      const data = snap.data();
-      return JSON.parse(data.value);
+  window.fbSave = async function(col, value) {
+    try {
+      await setDoc(docRef(col), { value: JSON.stringify(value) });
+    } catch(e) {
+      console.error("[FB] Erro salvar:", col, e);
     }
-    return fallback;
-  } catch(e) {
-    console.error("Erro ao carregar:", e);
-    // fallback para localStorage
-    const local = localStorage.getItem('bshop_'+collection);
-    return local ? JSON.parse(local) : fallback;
-  }
-};
+  };
 
-// ── Escutar mudanças em tempo real (para o cardápio do cliente) ──
-window.fbListen = function(collection, callback) {
-  return onSnapshot(docRef(collection), (snap) => {
-    if (snap.exists()) {
-      try { callback(JSON.parse(snap.data().value)); } catch(e) {}
+  window.fbLoad = async function(col, fallback) {
+    try {
+      const snap = await getDoc(docRef(col));
+      if (snap.exists()) return JSON.parse(snap.data().value);
+      return fallback;
+    } catch(e) {
+      console.error("[FB] Erro carregar:", col, e);
+      return fallback;
     }
-  }, (err) => console.error("Listener erro:", err));
-};
+  };
 
-// ── Inicializar o app após Firebase estar pronto ──
-window.firebaseReady = true;
-window.dispatchEvent(new Event('firebaseReady'));
+  window.fbListen = function(col, callback) {
+    return onSnapshot(docRef(col), (snap) => {
+      if (snap.exists()) {
+        try { callback(JSON.parse(snap.data().value)); } catch(e) {}
+      }
+    }, (err) => console.error("[FB] Listener erro:", col, err));
+  };
+
+  console.log("[FB] Firebase OK");
+} catch(e) {
+  console.error("[FB] Falha ao inicializar:", e);
+}
+
+// Sinaliza que o módulo terminou de executar
+window._fbModuleDone = true;
+document.dispatchEvent(new Event('fbModuleDone'));
 </script>
 
 <style>
@@ -793,16 +780,13 @@ var _cache = {};
 var _defaultCats = '[{"id":"hamburger","emoji":"🍔","name":"Hambúrguer","locked":true},{"id":"combo","emoji":"🍟","name":"Combo","locked":true},{"id":"bebida","emoji":"🥤","name":"Bebida","locked":true},{"id":"outro","emoji":"📦","name":"Outro","locked":true}]';
 var _defaultPromos = '["🔥 PROMOÇÃO DO DIA: Combo por R$29,90!","🎉 2ª e 3ª: X-Burguer com desconto!","🥤 Bebidas a partir de R$4,00!","⚡ FRETE GRÁTIS acima de R$50,00!"]';
 
-// Salvar com indicador visual
+// Salvar — localStorage imediato + Firebase em paralelo
 function dbSet(key, value) {
-  // 1. Cache imediato
   _cache[key] = value;
-  // 2. localStorage SEMPRE — garante que dbGet lê o valor certo logo após o set
   localStorage.setItem('bshop_'+key, JSON.stringify(value));
-  // 3. Firebase em paralelo (nuvem)
   showSavingInd();
   if (window.fbSave) {
-    window.fbSave(key, value).then(function(){ hideSavingInd(); }).catch(function(){ hideSavingInd(); });
+    window.fbSave(key, value).then(hideSavingInd).catch(hideSavingInd);
   } else {
     hideSavingInd();
   }
@@ -912,28 +896,27 @@ function addCategoria(){
   var name=document.getElementById('cat-name').value.trim();
   if(!name){toast('⚠️ Digite o nome da categoria!');return;}
   var cats=DB.categorias;
-  var id='cat_'+Date.now();
-  cats.push({id:id,emoji:emoji,name:name,locked:false});
+  cats.push({id:'cat_'+Date.now(),emoji:emoji,name:name,locked:false});
   DB.categorias=cats;
-  document.getElementById('cat-emoji').value='';document.getElementById('cat-name').value='';
+  document.getElementById('cat-emoji').value='';
+  document.getElementById('cat-name').value='';
   renderCatAdminList();fillCatSelects();renderCatTabs();toast('✅ Categoria adicionada!');
 }
 function delCategoria(id){
-  if(_lockedCatIds.indexOf(id)>=0){toast('🔒 Esta categoria não pode ser removida!');return;}
-  var cats=DB.categorias.filter(function(c){return c.id!==id;});
-  DB.categorias=cats;renderCatAdminList();fillCatSelects();renderCatTabs();toast('🗑️ Categoria removida');
+  if(_lockedCatIds.indexOf(id)>=0){toast('🔒 Categoria padrão não pode ser removida!');return;}
+  DB.categorias=DB.categorias.filter(function(c){return c.id!==id;});
+  renderCatAdminList();fillCatSelects();renderCatTabs();toast('🗑️ Categoria removida');
 }
 function renderCatAdminList(){
   var el=document.getElementById('cat-admin-list');
   var cats=DB.categorias;
-  // Garantir que categorias padrão sempre tenham locked=true
-  cats=cats.map(function(c){
-    if(_lockedCatIds.indexOf(c.id)>=0) c.locked=true;
-    return c;
-  });
   el.innerHTML=cats.map(function(c){
-    var isLocked=c.locked||_lockedCatIds.indexOf(c.id)>=0;
-    return '<div class="cat-admin-item"><span>'+c.emoji+' '+c.name+'</span>'+(isLocked?'<button class="cat-admin-del locked" disabled>🔒</button>':'<button class="cat-admin-del" onclick="delCategoria(\''+c.id+'\')">✕</button>')+'</div>';
+    var isLocked=c.locked||(_lockedCatIds.indexOf(c.id)>=0);
+    return '<div class="cat-admin-item"><span>'+c.emoji+' '+c.name+'</span>'
+      +(isLocked
+        ?'<button class="cat-admin-del locked" disabled>🔒</button>'
+        :'<button class="cat-admin-del" onclick="delCategoria(\''+c.id+'\')">✕</button>')
+      +'</div>';
   }).join('');
 }
 function fillCatSelects(){
@@ -1294,22 +1277,24 @@ function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.c
 ['admin-login-overlay','edit-modal'].forEach(function(id){document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});});
 
 // ══ INIT ══
+// ══ INIT ══
 async function init() {
   var loadingMsg = document.getElementById('loading-msg');
+  loadingMsg.textContent = 'Conectando ao Firebase...';
 
-  // Verificar se Firebase foi configurado
-  var waitFb = new Promise(function(resolve) {
-    if (window.firebaseReady) { resolve(); return; }
-    window.addEventListener('firebaseReady', resolve, {once:true});
-    setTimeout(resolve, 3000); // timeout fallback
+  // Espera o módulo Firebase terminar (usa document event para evitar problema de isolamento)
+  await new Promise(function(resolve) {
+    if (window._fbModuleDone) { resolve(); return; }
+    document.addEventListener('fbModuleDone', resolve, { once: true });
+    setTimeout(resolve, 5000); // fallback 5s
   });
 
-  await waitFb;
+  // Pequeno delay para garantir que window.fbLoad foi atribuído
+  await new Promise(function(r){ setTimeout(r, 150); });
 
-  // Checar se as credenciais foram preenchidas
   if (!window.fbLoad) {
-    document.getElementById('firebase-banner').style.display='block';
-    loadingMsg.textContent = 'Usando armazenamento local (Firebase não configurado)';
+    document.getElementById('firebase-banner').style.display = 'block';
+    loadingMsg.textContent = 'Modo local (Firebase não disponível)';
   } else {
     loadingMsg.textContent = 'Carregando cardápio...';
     try {
@@ -1317,14 +1302,15 @@ async function init() {
       startListeners();
       loadingMsg.textContent = '✅ Conectado!';
     } catch(e) {
-      loadingMsg.textContent = 'Erro de conexão — usando dados locais';
+      console.error("Erro loadAllFromFirebase:", e);
+      loadingMsg.textContent = 'Usando dados locais';
     }
   }
 
   setTimeout(function(){
     document.getElementById('loading-screen').classList.add('hidden');
     goClient();
-  }, 600);
+  }, 500);
 }
 
 init();
